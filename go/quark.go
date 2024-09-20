@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024 Elastic NV
 
+//go:build linux && (amd64 || arm64)
+//go:generate make -C ./.. all
+
 package quark
 
 /*
