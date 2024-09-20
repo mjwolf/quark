@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024 Elastic NV
 
+//go:build linux && (amd64 || arm64)
+//go:generate make -C ./../.. all
+
 package main
 
 import (
 	"fmt"
 
-	quark "github.com/elastic/quark/go"
+	quark "github.com/mjwolf/quark/go"
 )
 
 func main() {
