@@ -6,7 +6,7 @@ package quark
 /*
    #cgo CFLAGS: -I${SRCDIR}
    #cgo amd64 LDFLAGS: ${SRCDIR}/libquark_big_amd64.a
-   #cgo arm64 LDFLAGS: ${SRCDIR}/libquark_big.a
+   #cgo arm64 LDFLAGS: ${SRCDIR}/libquark_big_arm64.a
 
    #include <stdlib.h>
    #include "quark.h"

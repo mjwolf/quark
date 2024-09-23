@@ -6,7 +6,7 @@ package main
 import (
 	"fmt"
 
-	quark "github.com/elastic/quark/go"
+	quark "github.com/mjwolf/quark"
 )
 
 func main() {
