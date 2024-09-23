@@ -1,3 +1,4 @@
+//go:build none
 #include "compat.h"
 
 /*
