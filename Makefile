@@ -69,7 +69,7 @@ LIBQUARK_DEPS:= $(wildcard *.h) bpf_prog_skel.h $(EEBPF_FILES) include
 LIBQUARK_SRCS:= $(filter-out bpf_prog.c quark-mon.c quark-btf.c,$(wildcard *.c))
 LIBQUARK_OBJS:= $(patsubst %.c,%.o,$(LIBQUARK_SRCS))
 LIBQUARK_STATIC:= libquark.a
-LIBQUARK_STATIC_BIG:= libquark_big.a
+LIBQUARK_STATIC_BIG:= libquark_big_$(ARCH).a
 SVGS:= $(patsubst %.dot,%.svg,$(wildcard *.dot))
 
 # ZLIB
@@ -138,7 +138,7 @@ $(LIBQUARK_STATIC): $(LIBQUARK_OBJS)
 $(LIBQUARK_STATIC_BIG): $(LIBQUARK_STATIC) $(LIBBPF_STATIC) $(ELFTOOLCHAIN_STATIC) $(ZLIB_STATIC)
 	$(call msg,AR,$@)
 	$(Q)printf "\
-	create libquark_big.a\n\
+	create libquark_big_$(ARCH).a\n\
 	addlib libquark.a\n\
 	addlib libbpf/src/libbpf.a\n\
 	addlib elftoolchain/libelf/libelf_pic.a\n\
@@ -179,7 +179,7 @@ docker: docker-image clean-all
 	$(call msg,DOCKER-RUN,Dockerfile)
 	$(Q)$(DOCKER) run $(DOCKER_RUN_ARGS) /bin/bash -c make -C $(PWD)
 
-docker-cross-arm64: docker-image clean-all
+docker-cross-arm64: docker-image clean-not-a
 	$(call msg,DOCKER-RUN,Dockerfile)
 	$(Q)$(DOCKER) run				\
 		-e ARCH=arm64				\
@@ -189,7 +189,17 @@ docker-cross-arm64: docker-image clean-all
 		$(DOCKER_RUN_ARGS)			\
 		/bin/bash -c make -C $(PWD)
 
-docker-image: clean-all
+docker-cross-amd64: docker-image clean-not-a
+	$(call msg,DOCKER-RUN,Dockerfile)
+	$(Q)$(DOCKER) run				\
+		-e ARCH=amd64				\
+		-e CC=x86_64-linux-gnu-gcc		\
+		-e LD=x86_64-linux-gnu-ld		\
+		-e AR=x86_64-linux-gnu-ar		\
+		$(DOCKER_RUN_ARGS)			\
+		/bin/bash -c make -C $(PWD)
+
+docker-image: clean-not-a
 	$(call msg,DOCKER-IMAGE,Dockerfile)
 	$(Q)$(DOCKER) build				\
 		$(QDOCKER)				\
@@ -264,6 +274,17 @@ clean-all: clean
 	$(Q)make -C $(ELFTOOLCHAIN_SRC)/libelf clean
 	$(Q)make -C $(ZLIB_SRC) clean || true
 
+clean-not-a:
+	$(call msg,CLEAN-NOT-A)
+	$(Q)rm -f *.o quark-mon quark-btf bpf_prog_skel.h
+	$(Q)rm -rf docs/*.html
+	$(Q)rm -f $(SVGS)
+	$(Q)rm -rf include
+	$(Q)make -C $(LIBBPF_SRC) clean
+	$(Q)make -C $(ELFTOOLCHAIN_SRC)/libelf clean
+	$(Q)make -C $(ZLIB_SRC) clean || true
+
+
 clean-docs:
 	$(call msg,CLEAN,docs)
 	$(Q)rm -f docs/*.html
@@ -274,9 +295,11 @@ clean-docs:
 	clean			\
 	clean-all		\
 	clean-docs		\
+	clean-not-a     \
 	docs			\
 	eebpf-sync		\
 	docker			\
+	docker-cross-amd64  \
 	docker-cross-arm64	\
 	docker-image		\
 	docker-shell
