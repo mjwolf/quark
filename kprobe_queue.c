@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 /* Copyright (c) 2024 Elastic NV */
 
+//go:build none
+
 #include <linux/perf_event.h>
 #include <linux/hw_breakpoint.h>
 
