@@ -35,9 +35,6 @@ define assert_no_syslib
 endef
 
 CFLAGS?= -g -O2 -fno-strict-aliasing -fPIC
-ifdef CENTOS7
-CFLAGS+= -std=gnu99 -DNO_PUSH_PRAGMA
-endif
 
 CPPFLAGS?= -D_GNU_SOURCE
 ifndef SYSLIB
@@ -52,9 +49,6 @@ CDIAGFLAGS+= -Wcomment
 CDIAGFLAGS+= -Wformat
 CDIAGFLAGS+= -Wformat-security
 CDIAGFLAGS+= -Wimplicit
-ifndef CENTOS7
-CDIAGFLAGS+= -Wimplicit-fallthrough
-endif
 CDIAGFLAGS+= -Winline
 CDIAGFLAGS+= -Wmissing-declarations
 CDIAGFLAGS+= -Wmissing-prototypes
@@ -69,9 +63,6 @@ CDIAGFLAGS+= -Wtrigraphs
 CDIAGFLAGS+= -Wuninitialized
 CDIAGFLAGS+= -Wunused
 CDIAGFLAGS+= -Wno-unused-parameter
-ifdef CENTOS7
-CDIAGFLAGS+= -Wno-inline
-endif
 
 CLANG?= clang
 BPFTOOL?= bpftool
@@ -139,9 +130,6 @@ LIBBPF_EXTRA_CFLAGS+= -fPIC
 LIBBPF_EXTRA_CFLAGS+= -I../../elftoolchain/libelf
 LIBBPF_EXTRA_CFLAGS+= -I../../elftoolchain/common
 LIBBPF_EXTRA_CFLAGS+= -I../../zlib
-ifdef CENTOS7
-LIBBPF_EXTRA_CFLAGS+= -Wno-address
-endif
 
 # BPFPROG (kernel side)
 BPFPROG_OBJ:= bpf_probes.o
@@ -247,35 +235,35 @@ docker-shell:
 	$(DOCKER) run -it $(DOCKER_RUN_ARGS) $(SHELL)
 
 
-CENTOS7_RUN_ARGS=$(QDOCKER)				\
+ROCKY8_RUN_ARGS=$(QDOCKER)				\
 		-v $(PWD):$(PWD)			\
 		-w $(PWD)				\
 		-u $(shell id -u):$(shell id -g)	\
-		-e CENTOS7=y				\
-		centos7-quark-builder
+		-e ROCKY8=y				\
+		rocky8-quark-builder
 
-centos7: clean-all docker-image centos7-image
+rocky8: clean-all docker-image rocky8-image
 	# We first make only bpf_probes.o and bpf_probes_skel.h in the
-	# modern Ubuntu image, we can't make those on centos7
+	# modern Ubuntu image, we can't make those on rocky8
 	$(DOCKER) run					\
 		$(DOCKER_RUN_ARGS)			\
 		$(SHELL) -c "make -C $(PWD) bpf_probes.o bpf_probes_skel.h"
 	# Now we build the rest of the suite as it won't try to rebuild
 	# bpf_probes.o and bpf_probes_skel.h
 	$(DOCKER) run					\
-		$(CENTOS7_RUN_ARGS)			\
+		$(ROCKY8_RUN_ARGS)			\
 		$(SHELL) -c "make -j1 -C $(PWD)"
 
-centos7-image: clean-all
-	$(call msg,DOCKER-IMAGE,Dockerfile.centos7)
+rocky8-image: clean-all
+	$(call msg,DOCKER-IMAGE,Dockerfile.rocky8)
 	$(DOCKER) build					\
 		$(QDOCKER)				\
-		-f Dockerfile.centos7			\
-		-t centos7-quark-builder		\
+		-f Dockerfile.rocky8			\
+		-t rocky8-quark-builder		\
 		.
 
-centos7-shell:
-	$(DOCKER) run -it $(CENTOS7_RUN_ARGS) $(SHELL)
+rocky8-shell:
+	$(DOCKER) run -it $(ROCKY8_RUN_ARGS) $(SHELL)
 
 ALPINE_RUN_ARGS=$(QDOCKER)				\
 		-v $(PWD):$(PWD)			\
@@ -478,9 +466,9 @@ clean-docs:
 .PHONY:				\
 	all			\
 	btfhub			\
-	centos7			\
-	centos7-image		\
-	centos7-shell		\
+	rocky8			\
+	rocky8-image		\
+	rocky8-shell		\
 	clean			\
 	clean-all		\
 	clean-docs		\
@@ -497,9 +485,9 @@ clean-docs:
 .NOTPARALLEL:			\
 	clean			\
 	clean-all		\
-	centos7			\
-	centos7-image		\
-	centos7-shell		\
+	rocky8			\
+	rocky8-image		\
+	rocky8-shell		\
 	docker			\
 	docker-cross-arm64	\
 	docker-image		\
