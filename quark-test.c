@@ -2029,6 +2029,70 @@ t_rule_path(const struct test *t, struct quark_queue_attr *qa)
 }
 
 static int
+t_rule_exec_change(const struct test *t, struct quark_queue_attr *qa)
+{
+	struct quark_queue		 qq;
+	const struct quark_event	*qev;
+	struct quark_ruleset		 ruleset;
+	char				 execpath[] = "/tmp/quark-test-exec.XXXXXX";
+	char				 plainpath[] = "/tmp/quark-test-plain.XXXXXX";
+	int				 execfd, plainfd;
+	char				*text_ruleset;
+
+	if ((execfd = mkstemp(execpath)) == -1)
+		err(1, "mkstemp");
+	if ((plainfd = mkstemp(plainpath)) == -1)
+		err(1, "mkstemp");
+
+	/*
+	 * Pass executable-change events under execpath, drop everything else.
+	 * We chmod execpath executable and leave plainpath alone, so we should
+	 * only see the execpath event.
+	 */
+	if (asprintf(&text_ruleset,
+	    "pass on process.pid %d file.path /tmp/quark-test-exec* file.exec_change\n"
+	    "drop on process.pid %d\n",
+	    getpid(), getpid()) == -1)
+		err(1, "asprintf");
+	ruleset_from_string(&ruleset, text_ruleset);
+	free(text_ruleset);
+
+	assert(ruleset.n_rules == 2);
+	assert(ruleset.rules[0].n_fields == 3);
+
+	qa->ruleset = &ruleset;
+	qa->flags |= QQ_FILE;
+
+	if (quark_queue_open(&qq, qa) != 0)
+		err(1, "quark_queue_open");
+
+	/* Touch plainpath without making it executable, must be dropped */
+	assert(write(plainfd, "1", 1) == 1);
+	close(plainfd);
+	if (unlink(plainpath) == -1)
+		err(1, "unlink");
+	/* Make execpath executable, must pass */
+	assert(write(execfd, "1", 1) == 1);
+	if (chmod(execpath, 0755) == -1)
+		err(1, "chmod");
+	close(execfd);
+	if (unlink(execpath) == -1)
+		err(1, "unlink");
+
+	qev = drain_for_pid(&qq, getpid());
+	assert(qev->events & QUARK_EV_FILE);
+	assert(!strcmp(qev->file->path, execpath));
+	assert(qev->file->op_mask & QUARK_FILE_OP_MODIFY);
+	assert(qev->file->mode & 0111);
+	assert(ruleset.rules[0].hits == 1);
+
+	quark_queue_close(&qq);
+	quark_ruleset_clear(&ruleset);
+
+	return (0);
+}
+
+static int
 t_rule_path2(const struct test *t, struct quark_queue_attr *qa)
 {
 	struct quark_queue		 qq;
@@ -2291,6 +2355,7 @@ t_rule_parser(const struct test *t, struct quark_queue_attr *qa)
 		"pass on process.sid 11\n",
 		"drop on file.path /foo/bar\n",
 		"pass on file.path foo-bar\n",
+		"pass on file.path /foo/* file.exec_change\n",
 		"drop on process.exe /foo/bar\n",
 		"drop on process.exe /foo/*\n",
 		"drop on process.exe */bar\n",
@@ -2459,6 +2524,7 @@ struct test all_tests[] = {
 	T(t_hanson),
 	T(t_hanson_escape),
 	T_EBPF(t_rule_path),
+	T_EBPF(t_rule_exec_change),
 	T_EBPF(t_rule_path2),
 	T_EBPF(t_rule_poison),
 	T_EBPF(t_rule_poison_existing),

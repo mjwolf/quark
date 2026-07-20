@@ -4933,6 +4933,12 @@ quark_rule_field_match(struct quark_rule *rule, struct quark_rule_field *field,
 		if (qev->file != NULL)
 			return (path_match(field, qev->file->path));
 		break;
+	case QUARK_RF_FILE_EXEC_CHANGE:
+		if (qev->file != NULL)
+			return ((qev->file->op_mask &
+			    (QUARK_FILE_OP_CREATE | QUARK_FILE_OP_MODIFY)) &&
+			    (qev->file->mode & 0111));
+		break;
 	case QUARK_RF_POISON:
 		if (qp != NULL)
 			return (qp->poison_tag == field->poison_tag);
@@ -5066,6 +5072,8 @@ quark_rule_match_field(struct quark_rule *rule, struct quark_rule_field rf)
 			rf.wild.pre_len++; /* Include NUL in the comparison */
 		if (rf.wild.post_len > 0)
 			rf.wild.post_len++; /* Include NUL in the comparison */
+		break;
+	case QUARK_RF_FILE_EXEC_CHANGE:
 		break;
 	case QUARK_RF_POISON:
 		if (rf.poison_tag == 0)
