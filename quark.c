@@ -4,6 +4,7 @@
 #include <sys/epoll.h>
 #include <sys/param.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
 
@@ -4695,7 +4696,7 @@ raw_event_file(struct quark_queue *qq, struct raw_event *raw)
 {
 	struct quark_event	*qev;
 	struct raw_event	*agg;
-	u32			 op_mask;
+	u32			 op_mask, change_mask;
 
 	if (raw->file.quark_file == NULL) {
 		qwarnx("quark_file is null");
@@ -4713,13 +4714,16 @@ raw_event_file(struct quark_queue *qq, struct raw_event *raw)
 	 * raw_event.
 	 */
 	op_mask = raw->file.quark_file->op_mask;
+	change_mask = raw->file.quark_file->change_mask;
 	TAILQ_FOREACH(agg, &raw->agg_queue, agg_entry) {
 		op_mask |= agg->file.quark_file->op_mask;
+		change_mask |= agg->file.quark_file->change_mask;
 		raw = agg;
 	}
 
 	/* Steal the file */
 	raw->file.quark_file->op_mask = op_mask;
+	raw->file.quark_file->change_mask = change_mask;
 	qev->file = raw->file.quark_file;
 	raw->file.quark_file = NULL;
 
@@ -4935,9 +4939,9 @@ quark_rule_field_match(struct quark_rule *rule, struct quark_rule_field *field,
 		break;
 	case QUARK_RF_FILE_EXEC_CHANGE:
 		if (qev->file != NULL)
-			return ((qev->file->op_mask &
-			    (QUARK_FILE_OP_CREATE | QUARK_FILE_OP_MODIFY)) &&
-			    (qev->file->mode & 0111));
+			return (((qev->file->op_mask & QUARK_FILE_OP_CREATE) ||
+			    (qev->file->change_mask & QUARK_FILE_CH_PERMS)) &&
+			    (qev->file->mode & (S_IXUSR | S_IXGRP | S_IXOTH)));
 		break;
 	case QUARK_RF_POISON:
 		if (qp != NULL)

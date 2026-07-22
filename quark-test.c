@@ -2035,14 +2035,20 @@ t_rule_exec_change(const struct test *t, struct quark_queue_attr *qa)
 	const struct quark_event	*qev;
 	struct quark_ruleset		 ruleset;
 	char				 execpath[] = "/tmp/quark-test-exec.XXXXXX";
+	char				 modpath[] = "/tmp/quark-test-execmod.XXXXXX";
 	char				 plainpath[] = "/tmp/quark-test-plain.XXXXXX";
-	int				 execfd, plainfd;
+	int				 execfd, modfd, plainfd;
 	char				*text_ruleset;
 
 	if ((execfd = mkstemp(execpath)) == -1)
 		err(1, "mkstemp");
+	if ((modfd = mkstemp(modpath)) == -1)
+		err(1, "mkstemp");
 	if ((plainfd = mkstemp(plainpath)) == -1)
 		err(1, "mkstemp");
+	/* modpath is already executable before we start watching */
+	if (chmod(modpath, 0755) == -1)
+		err(1, "chmod");
 
 	/*
 	 * Pass executable-change events under execpath, drop everything else.
@@ -2071,6 +2077,11 @@ t_rule_exec_change(const struct test *t, struct quark_queue_attr *qa)
 	close(plainfd);
 	if (unlink(plainpath) == -1)
 		err(1, "unlink");
+	/* Modify contents of an already-executable file, must be dropped */
+	assert(write(modfd, "1", 1) == 1);
+	close(modfd);
+	if (unlink(modpath) == -1)
+		err(1, "unlink");
 	/* Make execpath executable, must pass */
 	assert(write(execfd, "1", 1) == 1);
 	if (chmod(execpath, 0755) == -1)
@@ -2083,7 +2094,7 @@ t_rule_exec_change(const struct test *t, struct quark_queue_attr *qa)
 	assert(qev->events & QUARK_EV_FILE);
 	assert(!strcmp(qev->file->path, execpath));
 	assert(qev->file->op_mask & QUARK_FILE_OP_MODIFY);
-	assert(qev->file->mode & 0111);
+	assert(qev->file->mode & (S_IXUSR | S_IXGRP | S_IXOTH));
 	assert(ruleset.rules[0].hits == 1);
 
 	quark_queue_close(&qq);
